@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tacticut's Minesweeper</title>
+<style>
+:root{color-scheme:dark;--bg:#101522;--panel:#1b2435;--line:#3a4963;--text:#f3f6ff;--muted:#aab6ca;--accent:#70d6ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:Arial,"Microsoft YaHei",sans-serif;padding:20px}
+.app{width:min(1050px,100%);margin:auto}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{margin:0;font-size:clamp(25px,4vw,34px);letter-spacing:2px}button,select{background:#263249;color:white;border:1px solid var(--line);border-radius:9px;padding:10px 13px;font:inherit;cursor:pointer}
+button:hover,select:hover{border-color:var(--accent)}.toolbar,.actions{display:flex;gap:8px;flex-wrap:wrap}.layout{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:16px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:14px;min-width:0}.board-wrap{overflow:auto;padding-bottom:4px}
+#board{display:grid;gap:3px;width:max-content;margin:auto;user-select:none;touch-action:manipulation}
+.cell{width:clamp(22px,3.4vw,34px);height:clamp(22px,3.4vw,34px);padding:0;border-radius:5px;background:#52627c;border:1px solid #71819b;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:clamp(12px,1.7vw,17px);line-height:1}
+.cell:hover:not(.revealed){background:#687b99}.cell.revealed{background:#d5dce8;border-color:#b7c2d4;color:#1a2435;cursor:default}.cell.flagged{background:#394b68}.cell.mine{background:#e45c65}
+.n1{color:#2463d3}.n2{color:#16834b}.n3{color:#d04444}.n4{color:#663bb2}.n5{color:#9b3d20}.n6{color:#168a91}.n7{color:#222}.n8{color:#666}
+.side{display:grid;gap:11px}.stat{background:#111a29;border:1px solid #33435d;border-radius:11px;padding:12px}.stat-label,.field label{font-size:12px;color:var(--muted)}
+.stat-value{font-size:24px;font-weight:bold;margin-top:4px;font-variant-numeric:tabular-nums}.field{display:grid;gap:7px}.field select{width:100%}
+.status{min-height:44px;line-height:1.45;color:var(--muted);font-size:14px}.help{font-size:13px;line-height:1.75;color:var(--muted)}.help strong{color:white}
+.primary{background:#17648b;border-color:#2788b6}footer{text-align:center;color:var(--muted);font-size:12px;margin-top:15px}
+@media(max-width:700px){body{padding:12px}.layout{grid-template-columns:1fr}.side{grid-template-columns:repeat(2,minmax(0,1fr))}.help,.status{grid-column:1/-1}.cell{width:clamp(20px,5.1vw,31px);height:clamp(20px,5.1vw,31px)}}
+</style>
+</head>
+<body><div class="app">
+<header><h1>MINESWEEPER</h1><div class="toolbar"><button id="languageBtn">简体中文</button><button id="restartBtn" class="primary">Restart</button></div></header>
+<div class="layout"><section class="panel"><div class="board-wrap"><div id="board"></div></div></section>
+<aside class="side">
+<div class="stat"><div class="stat-label" id="minesLabel">Mines</div><div class="stat-value" id="mines">10</div></div>
+<div class="stat"><div class="stat-label" id="flagsLabel">Flags</div><div class="stat-value" id="flags">0</div></div>
+<div class="stat"><div class="stat-label" id="remainingLabel">Remaining safe cells</div><div class="stat-value" id="remaining">70</div></div>
+<div class="field stat"><label id="difficultyLabel" for="difficulty">Difficulty</label><select id="difficulty"><option value="easy">Easy (8 × 10)</option><option value="medium">Medium (14 × 18)</option><option value="hard">Hard (20 × 24)</option></select></div>
+<div class="stat status" id="status" role="status" aria-live="polite">Click a cell to start.</div>
+<div class="stat help" id="help"><strong>Controls</strong><br>Left-click / tap: Reveal a cell<br>Right-click: Place or remove a flag<br>F key or Flag mode: Flag on touch screens</div>
+<div class="actions"><button id="flagModeBtn">🚩 Flag mode: OFF</button></div>
+</aside></div><footer id="footer">Tacticut's Minesweeper</footer></div>
+<script>
+"use strict";
+const SETTINGS={easy:{rows:8,cols:10,mines:10},medium:{rows:14,cols:18,mines:40},hard:{rows:20,cols:24,mines:99}};
+const WORDS={
+en:{restart:"Restart",mines:"Mines",flags:"Flags",remaining:"Remaining safe cells",difficulty:"Difficulty",easy:"Easy",medium:"Medium",hard:"Hard",controls:"Controls",reveal:"Left-click / tap: Reveal a cell",flag:"Right-click: Place or remove a flag",touch:"F key or Flag mode: Flag a cell",ready:"Click a cell to start.",safe:"First-click protection: this cell is safe!",flagged:"Flag placed.",unflagged:"Flag removed.",win:"Congratulations! You won!",lose:"Game over! You hit a mine.",flagModeOn:"🚩 Flag mode: ON",flagModeOff:"🚩 Flag mode: OFF",footer:"Tacticut's Minesweeper"},
+zh:{restart:"重新开始",mines:"地雷数量",flags:"旗帜数量",remaining:"剩余未打开安全格",difficulty:"难度",easy:"简单",medium:"中等",hard:"困难",controls:"操作说明",reveal:"点击格子：打开格子",flag:"右键点击：插旗或取消旗帜",touch:"按 F 键或使用插旗模式",ready:"点击一个格子开始游戏。",safe:"首次点击安全保护：这个格子没有地雷！",flagged:"已插上旗帜。",unflagged:"已取消旗帜。",win:"恭喜你！你赢了！",lose:"游戏结束！你踩到地雷了！",flagModeOn:"🚩 插旗模式：开启",flagModeOff:"🚩 插旗模式：关闭",footer:"Tacticut 的扫雷游戏"}};
+const $=id=>document.getElementById(id);let lang="en",difficulty="easy",rows,cols,mineTotal,board,revealed,flagged,firstClick,gameOver,flagMode=false,flagCount=0;
+const t=k=>WORDS[lang][k];
+function startGame(){let s=SETTINGS[difficulty];rows=s.rows;cols=s.cols;mineTotal=s.mines;board=Array.from({length:rows},()=>Array(cols).fill(0));revealed=Array.from({length:rows},()=>Array(cols).fill(false));flagged=Array.from({length:rows},()=>Array(cols).fill(false));firstClick=true;gameOver=false;flagCount=0;flagMode=false;$("status").textContent=t("ready");render();updateStats();updateFlagButton()}
+function inBounds(r,c){return r>=0&&r<rows&&c>=0&&c<cols}
+function neighbors(r,c){let a=[];for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if((dr||dc)&&inBounds(r+dr,c+dc))a.push([r+dr,c+dc]);return a}
+function placeMines(sr,sc){let n=0;while(n<mineTotal){let r=Math.floor(Math.random()*rows),c=Math.floor(Math.random()*cols);if(board[r][c]===0&&(r!==sr||c!==sc)){board[r][c]=-1;n++}}for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)if(board[r][c]!==-1)board[r][c]=neighbors(r,c).filter(([nr,nc])=>board[nr][nc]===-1).length}
+function revealArea(r,c){if(!inBounds(r,c)||revealed[r][c]||flagged[r][c]||board[r][c]===-1)return;revealed[r][c]=true;if(board[r][c]===0)for(let [nr,nc] of neighbors(r,c))revealArea(nr,nc)}
+function reveal(r,c){if(gameOver||!inBounds(r,c)||revealed[r][c]||flagged[r][c])return;if(firstClick){placeMines(r,c);firstClick=false}if(board[r][c]===-1){revealed[r][c]=true;gameOver=true;for(let rr=0;rr<rows;rr++)for(let cc=0;cc<cols;cc++)if(board[rr][cc]===-1)revealed[rr][cc]=true;$("status").textContent=t("lose");render();updateStats();return}revealArea(r,c);if(checkWin()){gameOver=true;$("status").textContent=t("win")}else if($("status").textContent===t("ready"))$("status").textContent=t("safe");render();updateStats()}
+function toggleFlag(r,c){if(gameOver||!inBounds(r,c)||revealed[r][c])return;flagged[r][c]=!flagged[r][c];flagCount+=flagged[r][c]?1:-1;$("status").textContent=t(flagged[r][c]?"flagged":"unflagged");render();updateStats()}
+function checkWin(){let n=0;for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)if(revealed[r][c])n++;return n===rows*cols-mineTotal}
+function render(){let el=$("board");el.style.gridTemplateColumns=`repeat(${cols},clamp(20px,3.4vw,34px))`;el.innerHTML="";for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){let b=document.createElement("button");b.type="button";b.className="cell";b.setAttribute("aria-label",`Row ${r+1}, column ${c+1}`);if(flagged[r][c]){b.classList.add("flagged");b.textContent="🚩"}else if(revealed[r][c]){b.classList.add("revealed");if(board[r][c]===-1){b.classList.add("mine");b.textContent="💣"}else if(board[r][c]>0){b.textContent=board[r][c];b.classList.add("n"+board[r][c])}}if(gameOver)b.disabled=true;b.addEventListener("click",()=>flagMode?toggleFlag(r,c):reveal(r,c));b.addEventListener("contextmenu",e=>{e.preventDefault();toggleFlag(r,c)});el.appendChild(b)}}
+function updateStats(){let n=0;for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)if(revealed[r][c]&&board[r][c]!==-1)n++;$("mines").textContent=mineTotal;$("flags").textContent=flagCount;$("remaining").textContent=rows*cols-mineTotal-n}
+function updateFlagButton(){$("flagModeBtn").textContent=t(flagMode?"flagModeOn":"flagModeOff");$("flagModeBtn").setAttribute("aria-pressed",String(flagMode))}
+function setLanguage(){document.documentElement.lang=lang==="zh"?"zh-CN":"en";$("languageBtn").textContent=lang==="zh"?"English":"简体中文";$("restartBtn").textContent=t("restart");$("minesLabel").textContent=t("mines");$("flagsLabel").textContent=t("flags");$("remainingLabel").textContent=t("remaining");$("difficultyLabel").textContent=t("difficulty");$("help").innerHTML=`<strong>${t("controls")}</strong><br>${t("reveal")}<br>${t("flag")}<br>${t("touch")}`;$("footer").textContent=t("footer");let o=$("difficulty").options;o[0].textContent=`${t("easy")} (8 × 10)`;o[1].textContent=`${t("medium")} (14 × 18)`;o[2].textContent=`${t("hard")} (20 × 24)`;updateFlagButton()}
+$("languageBtn").addEventListener("click",()=>{lang=lang==="en"?"zh":"en";setLanguage()});$("restartBtn").addEventListener("click",startGame);$("difficulty").addEventListener("change",e=>{difficulty=e.target.value;startGame()});$("flagModeBtn").addEventListener("click",()=>{flagMode=!flagMode;updateFlagButton()});document.addEventListener("keydown",e=>{if(e.key.toLowerCase()==="f"&&!["SELECT","BUTTON"].includes(e.target.tagName)){flagMode=!flagMode;updateFlagButton()}});
+setLanguage();startGame();
+</script></body></html>
